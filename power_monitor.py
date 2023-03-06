@@ -20,7 +20,8 @@ global day_tariff, night_tariff, standing  # tarrifs
 day_tariff = 0.4446  # Day rate per kW in £
 night_tariff = 0.1474  # Night rate per kW in £
 standing = 0.3903  # Standing charge per day in £
-pulsecount = 0
+pulsecount = 0 # pulsecount is pulses between reports. Each report t Influx resets the pulse count
+pulsecount_period = 0 # pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
 prev_interval = 0
 confirm = 0
 nopulsemin = 0 # counting minutes without pulses received
@@ -98,7 +99,7 @@ while True:
     now = datetime.datetime.now()
     theMonth = now.month
     today = now.day
-    pulsecount_hour = 0
+    pulsecount_period = 0
     enterloop = (
         1  # this is needed for entering the loop below while minutes are matching
     )
@@ -116,7 +117,7 @@ while True:
                 interval = time.time() - timer1
                 if interval > (prev_interval / 2) or confirm >= 1:
                     pulsecount += 1
-                    pulsecount_hour += 1
+                    pulsecount_period += 1
                     pulses_1min += 1
                     prev_interval = interval
                     confirm = 0
@@ -138,11 +139,11 @@ while True:
                     
                 if confirm >= 1 and max(interval - prev_interval, prev_interval - interval) < prev_interval / 2: # confirmed missed previous pulse , so adding another pulse
                     pulsecount += confirm
-                    pulsecount_hour += confirm
+                    pulsecount_period += confirm
                     pulses_1min += 1
                     confirm = 0
                 pulsecount += 1
-                pulsecount_hour += 1
+                pulsecount_period += 1
                 pulses_1min += 1
                 timer1 = time.time()  # reset inter-pulse timer
                 nopulsemin = 0
@@ -172,7 +173,7 @@ while True:
             power = pulses_1min * 60 / 100  # power calculated in Watts
             pulsecount = 0
             consumed = pulses_1min / 100  # consumed kW in the last minute
-            data = f"energy,host=house pulses={pulsecount_hour},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
+            data = f"energy,host=house pulses={pulsecount_period},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
             print("Pulsecount = ", pulsecount)
             print("Sending: ", data)
             interval = 0.0
@@ -192,7 +193,7 @@ while True:
             try:
                 power = 3600 / interval / 100
                 consumed = pulsecount / 100
-                data = f"energy,host=house pulses={pulsecount_hour},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
+                data = f"energy,host=house pulses={pulsecount_period},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
                 print("Interval = ", interval)
                 print("Sending: ", data)
                 # pulsecount = 0
@@ -225,7 +226,7 @@ while True:
                     pass
 
 
-    consumed_hour = pulsecount_hour / 100  # consumed kW in 1 hour
+    consumed_hour = pulsecount_period / 100  # consumed kW in 1 hour
     consumed_hour_cost = consumed_hour * tariff
     # we check what day it is
     now = datetime.datetime.now()
