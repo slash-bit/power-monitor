@@ -4,7 +4,7 @@ import InfluxQL_Cloud_write_string
 import power_monitor_influxDB_cloud
 from time import sleep
 import datetime
-
+#test
 # consumed_month = [408.1, 408.2, 408.3, 253.4, 253.5, 294.5, 280.5, 173.95, 1.9, 1.01, 1.11, 1.12]
 # cost_month = [93.1, 93.2, 93.3, 83.4, 83.5, 95.6, 95.7, 62.06, 0.9, 1.01, 1.11, 1.12]
 consumed_month = []
