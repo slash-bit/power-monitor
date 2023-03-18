@@ -2,10 +2,15 @@ import RPi.GPIO as GPIO
 from time import sleep  # this lets us have a time delay (see line 12)
 import time
 import datetime
-
-# from influxdb import InfluxDBClient
-# from influxdb import exceptions
+import paho.mqtt.publish as publish
 import power_monitor_influxDB_cloud
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+# Load credential from .env file
+mqtt_user = os.getenv("MQTT_USER")
+mqtt_password = os.getenv("MQTT_PASSWORD")
 
 GPIO.setmode(GPIO.BCM)  # set up BCM GPIO numbering
 GPIO.setup(24, GPIO.IN)  # set GPIO25 as input (button)
@@ -14,17 +19,19 @@ GPIO.setup(23, GPIO.OUT)  # LED for indicating pulses
 gpio25_prev = 0
 gpio24_prev = 1
 GPIO.output(23, 0)  # Initialise LED to OFF
-
+broker = "192.168.0.251"  # mqtt broker adress (homeassistant)
+port = 1883
 
 global day_tariff, night_tariff, standing  # tarrifs
 day_tariff = 0.4446  # Day rate per kW in £
 night_tariff = 0.1474  # Night rate per kW in £
 standing = 0.3903  # Standing charge per day in £
-pulsecount = 0 # pulsecount is pulses between reports. Each report t Influx resets the pulse count
-pulsecount_period = 0 # pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
+pulsecount = 0  # pulsecount is pulses between reports. Each report t Influx resets the pulse count
+# pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
+pulsecount_period = 0
 prev_interval = 0
 confirm = 0
-nopulsemin = 0 # counting minutes without pulses received
+nopulsemin = 0  # counting minutes without pulses received
 
 # check if DST is in effect
 if time.localtime().tm_isdst == 1:
@@ -52,6 +59,12 @@ consumed_day_night_cost = [
     0.0,
     0.0,
 ]  # a list to update day/nigh consumtion gbp cost (accumulating for 24h)
+
+
+def publish_mqtt(topic, payload):
+    publish.single(topic, payload, hostname=broker, port=port, client_id="power_consumption", qos=1, auth={'username': mqtt_user,
+                                                                                                           'password': mqtt_password})
+
 
 # get consumed_today value from DB
 bucket = "vlad_bucket"
@@ -86,12 +99,13 @@ try:
     consumed_daily_cost = {today: consumed_day_night_cost}
     meter_day = final_result["meter_day"]
     meter_night = final_result["meter_night"]
-
+    print(
+        f"Obtained last InfluxDB points:\nConsumed Daily: {consumed_daily}\nConsumed Daily Cost: {consumed_daily_cost}\nMeter_Day: {meter_day}\nMeter_Night: {meter_night}")
 
 except TimeoutError:
     # print('InfluxDB Cloud - Timeout Error')
     pass
-#temp meter reading to update
+# temp meter reading to update
 # meter_day = 41807.6
 # meter_night = 25367.88
 
@@ -122,7 +136,7 @@ while True:
                     prev_interval = interval
                     confirm = 0
                     timer1 = time.time()  # reset inter-pulse timer
-                else: # possibly false pulse, wait for next one to confirm
+                else:  # possibly false pulse, wait for next one to confirm
                     confirm += 1
                     print("Possibly false pulse, waiting for confirmation")
 
@@ -134,10 +148,11 @@ while True:
             if gpio24_prev < GPIO.input(24):  # night pulse detected
                 interval = time.time() - timer1
                 if interval > (prev_interval * 1.5):
-                    #interval = prev_interval
+                    # interval = prev_interval
                     confirm += 1
-                    
-                if confirm >= 1 and max(interval - prev_interval, prev_interval - interval) < prev_interval / 2: # confirmed missed previous pulse , so adding another pulse
+
+                # confirmed missed previous pulse , so adding another pulse
+                if confirm >= 1 and max(interval - prev_interval, prev_interval - interval) < prev_interval / 2:
                     pulsecount += confirm
                     pulsecount_period += confirm
                     pulses_1min += 1
@@ -171,24 +186,32 @@ while True:
 
         if 15 > pulses_1min > 5:
             power = pulses_1min * 60 / 100  # power calculated in Watts
-            pulsecount = 0
             consumed = pulses_1min / 100  # consumed kW in the last minute
             data = f"energy,host=house pulses={pulsecount_period},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
             print("Pulsecount = ", pulsecount)
             print("Sending: ", data)
             interval = 0.0
+            pulsecount = 0
             try:
                 power_monitor_influxDB_cloud.main(data)
             except TimeoutError:
                 with open("power_monitor.log", "a") as log:
-                    log.write(f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                    log.write(
+                        f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                log.close
+                pass
+            try:
+                publish_mqtt("home/power/consumption", str(power))
+            except:
+                with open("power_monitor.log", "a") as log:
+                    log.write(f"{time.asctime()} MQTT Timeout")
                 log.close
                 pass
         elif (
             pulsecount > pulsecount_new
             and pulsecount != 0
             and timer1 != 0
-            and 3600 > interval > 6 
+            and 3600 > interval > 6
         ):
             try:
                 power = 3600 / interval / 100
@@ -196,13 +219,21 @@ while True:
                 data = f"energy,host=house pulses={pulsecount_period},pulsecount={pulsecount},interval={interval},current_power={power},day_rate={day_rate}"
                 print("Interval = ", interval)
                 print("Sending: ", data)
-                # pulsecount = 0
+                pulsecount = 0
                 interval = 0.0
                 try:
                     power_monitor_influxDB_cloud.main(data)
                 except TimeoutError:
                     with open("power_monitor.log", "a") as log:
-                        log.write(f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                        log.write(
+                            f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                    log.close
+                    pass
+                try:
+                    publish_mqtt("home/power/consumption", str(power))
+                except:
+                    with open("power_monitor.log", "a") as log:
+                        log.write(f"{time.asctime()} MQTT Timeout")
                     log.close
                     pass
             except:
@@ -212,19 +243,28 @@ while True:
                     )
                 log.close
                 pass
-        elif pulsecount == pulsecount_new and (time.time() - timer1) > prev_interval: # for those minutes when no pulses received, it will log a datapoint 
+        # for those minutes when no pulses received, it will log a datapoint
+        elif pulsecount == pulsecount_new and (time.time() - timer1) > prev_interval:
             nopulsemin += 1
             if nopulsemin > 1:
-                power = 3600 / (time.time() - timer1) / 100  # power calculated based on minutes elapsed without pulses
+                # power calculated based on minutes elapsed without pulses
+                power = 3600 / (time.time() - timer1) / 100
                 data = f"energy,host=house current_power={power}"
                 try:
                     power_monitor_influxDB_cloud.main(data)
                 except TimeoutError:
                     with open("power_monitor.log", "a") as log:
-                        log.write(f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                        log.write(
+                            f"{time.asctime()} InfluxDB Cloud - Timeout Error")
                     log.close
                     pass
-
+                try:
+                    publish_mqtt("home/power/consumption", str(power))
+                except:
+                    with open("power_monitor.log", "a") as log:
+                        log.write(f"{time.asctime()} MQTT Timeout")
+                    log.close
+                    pass
 
     consumed_hour = pulsecount_period / 100  # consumed kW in 1 hour
     consumed_hour_cost = consumed_hour * tariff
@@ -235,7 +275,8 @@ while True:
     if consumed_daily.get(today) is None:  # it means its a start of a new day
         # new_value = consumed_hour
         if day_rate:
-            consumed_day_night[0] = consumed_hour  # updating the day entry of the list
+            # updating the day entry of the list
+            consumed_day_night[0] = consumed_hour
             consumed_day_night_cost[0] = consumed_hour_cost
             consumed_day_night[1] = 0.0
             consumed_day_night_cost[1] = (
@@ -250,19 +291,30 @@ while True:
             consumed_day_night_cost[0] = (
                 standing / 2
             )  # adding half of daily standing charge of day cost
+        try:
+            # sending new last reset date in ISO format
+            publish_mqtt("home/power/lastreset", now.isoformat())
+        except:
+            with open("power_monitor.log", "a") as log:
+                log.write(f"{time.asctime()} MQTT Timeout")
+            log.close
+            pass
+
     else:
         # new_value = (consumed_daily.get(today)) + consumed_hour
         if day_rate:
             consumed_day_night[0] = (
                 consumed_day_night[0] + consumed_hour
             )  # updating the day entry of the list
-            consumed_day_night_cost[0] = consumed_day_night_cost[0] + consumed_hour_cost
+            consumed_day_night_cost[0] = consumed_day_night_cost[0] + \
+                consumed_hour_cost
         else:
             pass
             consumed_day_night[1] = (
                 consumed_day_night[1] + consumed_hour
             )  # updating the night entry of the list
-            consumed_day_night_cost[1] = consumed_day_night_cost[1] + consumed_hour_cost
+            consumed_day_night_cost[1] = consumed_day_night_cost[1] + \
+                consumed_hour_cost
 
     consumed_daily.update(
         {today: consumed_day_night}
@@ -284,3 +336,11 @@ while True:
             f"{time.asctime()} - Consumed 15m: {consumed_hour:.3f}kWh | Cost 15m: £{consumed_hour_cost:.2f} | Consumed today: {(sum(consumed_daily.get(today))):.3f}kWh | Today cost: £{(sum(consumed_daily_cost.get(today))):.2f}\n"
         )
     log.close
+    try:
+        publish_mqtt("home/power/consumed",
+                     f"{(sum(consumed_daily.get(today))):.3f}")
+    except:
+        with open("power_monitor.log", "a") as log:
+            log.write(f"{time.asctime()} MQTT Timeout")
+        log.close
+        pass
