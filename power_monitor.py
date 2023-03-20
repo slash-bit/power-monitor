@@ -231,6 +231,8 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
+                    if power > 0.2:
+                        publish_mqtt("home/power/consumptionhigh", "")
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
@@ -260,6 +262,8 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
+                    if power < 0.06:
+                        publish_mqtt("home/power/consumptionlow", "")
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
