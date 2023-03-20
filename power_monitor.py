@@ -339,6 +339,8 @@ while True:
     try:
         publish_mqtt("home/power/consumed",
                      f"{(sum(consumed_daily.get(today))):.3f}")
+        publish_mqtt("home/power/energytariff",
+                     f"{tariff:.4f}")
     except:
         with open("power_monitor.log", "a") as log:
             log.write(f"{time.asctime()} MQTT Timeout")
