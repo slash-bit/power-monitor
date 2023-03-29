@@ -32,6 +32,7 @@ pulsecount_period = 0
 prev_interval = 0
 confirm = 0
 nopulsemin = 0  # counting minutes without pulses received
+mqtt_high = True
 
 # check if DST is in effect
 if time.localtime().tm_isdst == 1:
@@ -231,8 +232,9 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if power > 0.2:
+                    if power > 0.2 and not mqtt_high:  # publish high consumption only once
                         publish_mqtt("home/power/consumptionhigh", "")
+                        mqtt_high = True
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
@@ -262,8 +264,9 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if power < 0.06:
+                    if mqtt_high and power < 0.06:  # publishing low consumption only when high consumption was published
                         publish_mqtt("home/power/consumptionlow", "")
+                        mqtt_high = False
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
