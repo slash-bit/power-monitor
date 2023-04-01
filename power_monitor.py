@@ -23,15 +23,16 @@ broker = "192.168.0.251"  # mqtt broker adress (homeassistant)
 port = 1883
 
 global day_tariff, night_tariff, standing  # tarrifs
-day_tariff = 0.4446  # Day rate per kW in £
-night_tariff = 0.1474  # Night rate per kW in £
-standing = 0.3903  # Standing charge per day in £
+day_tariff = 0.4545  # Day rate per kW in £
+night_tariff = 0.15729  # Night rate per kW in £
+standing = 0.43755  # Standing charge per day in £
 pulsecount = 0  # pulsecount is pulses between reports. Each report t Influx resets the pulse count
 # pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
 pulsecount_period = 0
 prev_interval = 0
 confirm = 0
 nopulsemin = 0  # counting minutes without pulses received
+mqtt_high = True  # flag to indicate mqtt message sent
 
 # check if DST is in effect
 if time.localtime().tm_isdst == 1:
@@ -231,8 +232,9 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if power > 0.2:
+                    if not mqtt_high and power > 0.2:  # publish mqtt high consumption
                         publish_mqtt("home/power/consumptionhigh", "")
+                        mqtt_high = True
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
@@ -262,8 +264,9 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if power < 0.06:
+                    if mqtt_high and power < 0.06:  # publish mqtt low consumption
                         publish_mqtt("home/power/consumptionlow", "")
+                        mqtt_high = False
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
