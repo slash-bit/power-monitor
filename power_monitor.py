@@ -298,14 +298,6 @@ while True:
             consumed_day_night_cost[0] = (
                 standing / 2
             )  # adding half of daily standing charge of day cost
-        try:
-            # sending new last reset date in ISO format
-            publish_mqtt("home/power/lastreset", now.isoformat())
-        except:
-            with open("power_monitor.log", "a") as log:
-                log.write(f"{time.asctime()} MQTT Timeout")
-            log.close
-            pass
 
     else:
         # new_value = (consumed_daily.get(today)) + consumed_hour
