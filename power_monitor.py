@@ -232,9 +232,7 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if not mqtt_high and power > 0.2:  # publish mqtt high consumption
-                        publish_mqtt("home/power/consumptionhigh", "")
-                        mqtt_high = True
+
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
@@ -264,15 +262,19 @@ while True:
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
-                    if mqtt_high and power < 0.06:  # publish mqtt low consumption
-                        publish_mqtt("home/power/consumptionlow", "")
-                        mqtt_high = False
+
                 except:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} MQTT Timeout")
                     log.close
                     pass
-
+        # check if low or high consumption and publish mqtt
+        if mqtt_high and power < 0.06:  # publish mqtt low consumption
+            publish_mqtt("home/power/consumptionlow", "")
+            mqtt_high = False
+        elif not mqtt_high and power > 0.25:  # publish mqtt high consumption
+            publish_mqtt("home/power/consumptionhigh", "")
+            mqtt_high = True
     consumed_hour = pulsecount_period / 100  # consumed kW in 1 hour
     consumed_hour_cost = consumed_hour * tariff
     # we check what day it is
