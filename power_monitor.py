@@ -2,6 +2,7 @@ import RPi.GPIO as GPIO
 from time import sleep  # this lets us have a time delay (see line 12)
 import time
 import datetime
+from datetime import timedelta
 import paho.mqtt.publish as publish
 import power_monitor_influxDB_cloud
 import os
@@ -44,6 +45,8 @@ else:
 
 now = datetime.datetime.now()
 mod = now.hour * 60 + now.minute
+night_switch_start = datetime.datetime.now().time().replace(hour=0, minute=00, second=0, microsecond=0)
+night_switch_end = datetime.datetime.now().time().replace(hour=2, minute=00, second=0, microsecond=0)
 timer1 = 0
 pulse_count_day = 0  # couning pulses until 800 , then increment meter reading
 pulse_count_night = 0
@@ -139,8 +142,21 @@ while True:
                     timer1 = time.time()  # reset inter-pulse timer
                 else:  # possibly false pulse, wait for next one to confirm
                     confirm += 1
-                    print("Possibly false pulse, waiting for confirmation")
-
+                    with open("power_monitor.log", "a") as log:
+                        log.write(f"{time.asctime()} Possibly false pulse, prev_interval={prev_interval:.0f}, now interval= {interval:.0f} | waiting for confirmation\n")
+                    log.close
+                if night_switch_end > time.time() > night_switch_start and interval < (prev_interval / 5): #we check if the time within possible night rate switch and pulse came unexpectedly quick
+                    with open("power_monitor.log", "a") as log:
+                        log.write(f"{time.asctime()} Night_rate switch detected, prev_interval={prev_interval:.0f}, now interval= {interval:.0f}\n")
+                    log.close
+                    day_rate_start = (datetime.datetime.now() + timedelta(hours=7)).time() # we calculate the Day rate start time, the post to homeassistant via MQTT
+                    try:
+                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M:%S"))
+                    except:
+                        with open("power_monitor_error.log", "a") as log:
+                            log.write(f"{time.asctime()} MQTT Timeout\n")
+                        log.close
+                pass
                 timer1 = time.time()  # set inter-pulse timer
                 nopulsemin = 0
                 print("Pulse detected on PIN 25 (day led)")
@@ -196,16 +212,16 @@ while True:
             try:
                 power_monitor_influxDB_cloud.main(data)
             except TimeoutError:
-                with open("power_monitor.log", "a") as log:
+                with open("power_monitor_error.log", "a") as log:
                     log.write(
-                        f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                        f"{time.asctime()} InfluxDB Cloud - Timeout Error\n")
                 log.close
                 pass
             try:
                 publish_mqtt("home/power/consumption", str(power))
             except:
-                with open("power_monitor.log", "a") as log:
-                    log.write(f"{time.asctime()} MQTT Timeout")
+                with open("power_monitor_error.log", "a") as log:
+                    log.write(f"{time.asctime()} MQTT Timeout\n")
                 log.close
                 pass
         elif (
@@ -225,23 +241,23 @@ while True:
                 try:
                     power_monitor_influxDB_cloud.main(data)
                 except TimeoutError:
-                    with open("power_monitor.log", "a") as log:
+                    with open("power_monitor_error.log", "a") as log:
                         log.write(
-                            f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                            f"{time.asctime()} InfluxDB Cloud - Timeout Error\n")
                     log.close
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
 
                 except:
-                    with open("power_monitor.log", "a") as log:
-                        log.write(f"{time.asctime()} MQTT Timeout")
+                    with open("power_monitor_error.log", "a") as log:
+                        log.write(f"{time.asctime()} MQTT Timeout\n")
                     log.close
                     pass
             except:
-                with open("power_monitor.log", "a") as log:
+                with open("power_monitor_error.log", "a") as log:
                     log.write(
-                        f"{time.asctime()} Someting went wrong during consumption calculation"
+                        f"{time.asctime()} Someting went wrong during consumption calculation\n"
                     )
                 log.close
                 pass
@@ -255,17 +271,17 @@ while True:
                 try:
                     power_monitor_influxDB_cloud.main(data)
                 except TimeoutError:
-                    with open("power_monitor.log", "a") as log:
+                    with open("power_monitor_error.log", "a") as log:
                         log.write(
-                            f"{time.asctime()} InfluxDB Cloud - Timeout Error")
+                            f"{time.asctime()} InfluxDB Cloud - Timeout Error\n")
                     log.close
                     pass
                 try:
                     publish_mqtt("home/power/consumption", str(power))
 
                 except:
-                    with open("power_monitor.log", "a") as log:
-                        log.write(f"{time.asctime()} MQTT Timeout")
+                    with open("power_monitor_error.log", "a") as log:
+                        log.write(f"{time.asctime()} MQTT Timeout\n")
                     log.close
                     pass
         # check if low or high consumption and publish mqtt
@@ -343,7 +359,7 @@ while True:
         publish_mqtt("home/power/energytariff",
                      f"{tariff:.4f}")
     except:
-        with open("power_monitor.log", "a") as log:
-            log.write(f"{time.asctime()} MQTT Timeout")
+        with open("power_monitor_error.log", "a") as log:
+            log.write(f"{time.asctime()} MQTT Timeout\n")
         log.close
         pass
