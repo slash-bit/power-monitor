@@ -151,7 +151,7 @@ while True:
                     log.close
                     day_rate_start = (datetime.datetime.now() + timedelta(hours=7)).time() # we calculate the Day rate start time, the post to homeassistant via MQTT
                     try:
-                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M:%S"))
+                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M"))
                     except:
                         with open("power_monitor_error.log", "a") as log:
                             log.write(f"{time.asctime()} MQTT Timeout\n")
