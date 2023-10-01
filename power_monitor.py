@@ -145,7 +145,7 @@ while True:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} Possibly false pulse, prev_interval={prev_interval:.0f}, now interval= {interval:.0f} | waiting for confirmation\n")
                     log.close
-                if night_switch_end > time.time() > night_switch_start and interval < (prev_interval / 5): #we check if the time within possible night rate switch and pulse came unexpectedly quick
+                if night_switch_end > datetime.datetime.now().time() > night_switch_start and interval < (prev_interval / 5): #we check if the time within possible night rate switch and pulse came unexpectedly quick
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} Night_rate switch detected, prev_interval={prev_interval:.0f}, now interval= {interval:.0f}\n")
                     log.close
