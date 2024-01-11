@@ -145,13 +145,17 @@ while True:
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} Possibly false pulse, prev_interval={prev_interval:.0f}, now interval= {interval:.0f} | waiting for confirmation\n")
                     log.close
-                if night_switch_end > datetime.datetime.now().time() > night_switch_start and interval < (prev_interval / 5): #we check if the time within possible night rate switch and pulse came unexpectedly quick
+                 #we check if the spike pulse came between 23:00 and 01:00 and if so we assume its a night rate switch
+                if (23 == now.hour or now.hour <= 1) and interval < (prev_interval / 5):
                     with open("power_monitor.log", "a") as log:
                         log.write(f"{time.asctime()} Night_rate switch detected, prev_interval={prev_interval:.0f}, now interval= {interval:.0f}\n")
                     log.close
-                    day_rate_start = (datetime.datetime.now() + timedelta(hours=7)).time() # we calculate the Day rate start time, its 7 hours after and the post to homeassistant via MQTT
-                    try: #publish mqtt persistently
-                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M"), retain=True)
+                    #we calculate new night_switch_start and night_switch_end times
+                    night_switch_start = datetime.datetime.now().time()
+                    night_switch_end = (datetime.datetime.now() + timedelta(hours=7)).time()
+                    # we calculate the Day rate start time, its 7 hours after and the post to homeassistant via MQTT persistently
+                    try:
+                        publish_mqtt("home/power/dayratetime", night_switch_end.strftime("%H:%M"), retain=True)
                     except:
                         with open("power_monitor_error.log", "a") as log:
                             log.write(f"{time.asctime()} MQTT Timeout\n")
