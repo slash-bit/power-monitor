@@ -150,8 +150,8 @@ while True:
                         log.write(f"{time.asctime()} Night_rate switch detected, prev_interval={prev_interval:.0f}, now interval= {interval:.0f}\n")
                     log.close
                     day_rate_start = (datetime.datetime.now() + timedelta(hours=7)).time() # we calculate the Day rate start time, its 7 hours after and the post to homeassistant via MQTT
-                    try:
-                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M"))
+                    try: #publish mqtt persistently
+                        publish_mqtt("home/power/dayratetime", day_rate_start.strftime("%H:%M"), retain=True)
                     except:
                         with open("power_monitor_error.log", "a") as log:
                             log.write(f"{time.asctime()} MQTT Timeout\n")
