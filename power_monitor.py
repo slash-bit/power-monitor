@@ -37,7 +37,7 @@ mqtt_high = True  # flag to indicate mqtt message sent
 
 # check if DST is in effect and set day rate/night rate change times
 if time.localtime().tm_isdst == 1:
-    dst_start = 482 #08:39
+    dst_start = 482 #08:02
     dst_fin = 62 # 01:02
 else:
     dst_start = 422 #07:02
