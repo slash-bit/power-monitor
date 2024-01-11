@@ -24,9 +24,9 @@ broker = "192.168.0.251"  # mqtt broker adress (homeassistant)
 port = 1883
 
 global day_tariff, night_tariff, standing  # tarrifs
-day_tariff = 0.3657  # Day rate per kW in £
-night_tariff = 0.1319  # Night rate per kW in £
-standing = 0.4375  # Standing charge per day in £
+day_tariff = 0.3741  # Day rate per kW in £
+night_tariff = 0.1529  # Night rate per kW in £
+standing = 0.4401  # Standing charge per day in £
 pulsecount = 0  # pulsecount is pulses between reports. Each report t Influx resets the pulse count
 # pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
 pulsecount_period = 0
@@ -37,11 +37,11 @@ mqtt_high = True  # flag to indicate mqtt message sent
 
 # check if DST is in effect and set day rate/night rate change times
 if time.localtime().tm_isdst == 1:
-    dst_start = 519 #08:39
-    dst_fin = 99 # 01:39
+    dst_start = 482 #08:39
+    dst_fin = 62 # 01:02
 else:
-    dst_start = 459 #07:39
-    dst_fin = 39 #00:39
+    dst_start = 422 #07:02
+    dst_fin = 2 #00:02
 
 now = datetime.datetime.now()
 mod = now.hour * 60 + now.minute
