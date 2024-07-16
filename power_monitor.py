@@ -23,10 +23,11 @@ GPIO.output(23, 0)  # Initialise LED to OFF
 broker = "192.168.0.251"  # mqtt broker adress (homeassistant)
 port = 1883
 
-global day_tariff, night_tariff, standing  # tarrifs
-day_tariff = 0.3741  # Day rate per kW in £
-night_tariff = 0.1529  # Night rate per kW in £
-standing = 0.4401  # Standing charge per day in £
+global day_tariff, night_tariff, standing
+  # tariff updated 08.07.2024 (flat rate)
+day_tariff = 0.2216  # Day rate per kW in £
+night_tariff = 0.2216  # Night rate per kW in £
+standing = 0.4992  # Standing charge per day in £
 pulsecount = 0  # pulsecount is pulses between reports. Each report t Influx resets the pulse count
 # pulse count period is pulses counted during 15min period. Those pulses used to calculate consumed energy.
 pulsecount_period = 0
@@ -109,9 +110,7 @@ try:
 except TimeoutError:
     # print('InfluxDB Cloud - Timeout Error')
     pass
-# temp meter reading to update
-# meter_day = 41807.6
-# meter_night = 25367.88
+
 
 while True:
     now = datetime.datetime.now()
@@ -302,25 +301,17 @@ while True:
     today = now.day
     # the below daily cumulative calculaition can be phased out ( we switching to hourly sum in the Flux query)
     if consumed_daily.get(today) is None:  # it means its a start of a new day
-        # new_value = consumed_hour
+        consumed_day_night_cost[1] = (standing / 2)  # adding half of daily standing charge of night cost
+        consumed_day_night_cost[0] = (standing / 2)  # adding half of daily standing charge of day cost
         if day_rate:
             # updating the day entry of the list
             consumed_day_night[0] = consumed_hour
             consumed_day_night_cost[0] = consumed_hour_cost
             consumed_day_night[1] = 0.0
-            consumed_day_night_cost[1] = (
-                standing / 2
-            )  # adding half of daily standing charge of night cost
         else:
-            consumed_day_night[
-                1
-            ] = consumed_hour  # updating the night entry of the list
-            consumed_day_night_cost[1] = consumed_hour_cost
-            consumed_day_night[0] = 0.0
-            consumed_day_night_cost[0] = (
-                standing / 2
-            )  # adding half of daily standing charge of day cost
-
+            consumed_day_night[1] = consumed_hour  # updating the night entry of the list
+            consumed_day_night_cost[1] = consumed_hour_cost # updating the night entry of the list
+            consumed_day_night[0] = 0.0 # setting day to 0
     else:
         # new_value = (consumed_daily.get(today)) + consumed_hour
         if day_rate:
