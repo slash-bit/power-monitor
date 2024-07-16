@@ -303,30 +303,15 @@ while True:
     if consumed_daily.get(today) is None:  # it means its a start of a new day
         consumed_day_night_cost[1] = (standing / 2)  # adding half of daily standing charge of night cost
         consumed_day_night_cost[0] = (standing / 2)  # adding half of daily standing charge of day cost
-        if day_rate:
-            # updating the day entry of the list
-            consumed_day_night[0] = consumed_hour
-            consumed_day_night_cost[0] = consumed_hour_cost
-            consumed_day_night[1] = 0.0
-        else:
-            consumed_day_night[1] = consumed_hour  # updating the night entry of the list
-            consumed_day_night_cost[1] = consumed_hour_cost # updating the night entry of the list
-            consumed_day_night[0] = 0.0 # setting day to 0
+        consumed_day_night[1] = 0.0  # setting night to 0
+        consumed_day_night[0] = 0.0 # setting day to 0
+
+    if day_rate:
+        consumed_day_night[0] += consumed_hour  # updating the day entry of the list
+        consumed_day_night_cost[0] += consumed_hour_cost
     else:
-        # new_value = (consumed_daily.get(today)) + consumed_hour
-        if day_rate:
-            consumed_day_night[0] = (
-                consumed_day_night[0] + consumed_hour
-            )  # updating the day entry of the list
-            consumed_day_night_cost[0] = consumed_day_night_cost[0] + \
-                consumed_hour_cost
-        else:
-            pass
-            consumed_day_night[1] = (
-                consumed_day_night[1] + consumed_hour
-            )  # updating the night entry of the list
-            consumed_day_night_cost[1] = consumed_day_night_cost[1] + \
-                consumed_hour_cost
+        consumed_day_night[1] += consumed_hour  # updating the night entry of the list
+        consumed_day_night_cost[1] += consumed_hour_cost # updating the night entry of the list
 
     consumed_daily.update(
         {today: consumed_day_night}
